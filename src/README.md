@@ -1,66 +1,149 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Task Management System (Laravel + Inertia.js + Vue 3 + Docker)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A full-stack demo project featuring Laravel (Controllers, Services, Requests, Resources, Observers), Inertia.js, Vue 3 (Composition API), Pinia, and Tailwind CSS.  
+It includes a Docker environment (Nginx + PHP + PostgreSQL) for local development.
 
-## About Laravel
+## Features
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+### Tasks
+- CRUD for tasks: `title`, `description`, `status` (`pending|in_progress|completed`), `priority` (`low|medium|high`), `due_date`, `category_id`.
+- Filtering and search: status, priority, category, date range, free text.
+- Sorting: `created_at`, `due_date`, `priority`, `status`, `title`.
+- Soft delete & restore support.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+### Categories
+- CRUD for categories with max 2 levels (parent → child).
+- Statistics page with task counts by status and overall totals.
+- Optimized queries with `withCount()` and optional caching.
+- Cache invalidation via Observers on task/category changes.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### UX
+- Unified **TaskForm** and **CategoryForm** (create & edit).
+- Inline field errors with FormRequest validation.
+- Loading/disabled state on form submit.
+- Toast notifications for success actions.
+- Tailwind-based layout with navigation highlighting.
+- Additional UI component: `StatCard.vue` for displaying compact statistics.
 
-## Learning Laravel
+## Architecture
+- Controller (HTTP layer) → Service (domain logic) → Model (Eloquent + scopes).
+- `TaskQueryService` centralizes filtering, sorting, and pagination.
+- `CategoryStatsCache` handles category statistics caching with TTL and invalidation.
+- Pinia stores for filters (`useTaskFiltersStore`) and statistics (`useCategoryStatsStore`).
+- Clean commit history following Conventional Commits.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Tech Stack
+- **Backend:** Laravel 10+, PHP 8.2, PostgreSQL  
+- **Frontend:** Inertia.js, Vue 3 (Composition API), Pinia, Tailwind CSS, Ziggy  
+- **Infrastructure:** Docker (nginx, php-fpm, postgres)  
+- **Cache:** File (dev) / Redis (recommended in production)  
+- **Tooling:** Vite, Laravel Pint, Pest (tests planned)  
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+## Getting Started
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### With Docker
+```bash
+docker compose up -d --build
+```
 
-## Laravel Sponsors
+- App → http://localhost:8080  
+- Nginx config → `docker/nginx/default.conf`  
+- PHP Dockerfile → `docker/php/Dockerfile`  
+- PostgreSQL init script → `docker/postgres/init.sql`  
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Without Docker
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
 
-### Premium Partners
+npm install
+npm run dev
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+php artisan migrate
+php artisan serve
+```
 
-## Contributing
+## Routing
+```php
+// Tasks
+Route::resource('tasks', TaskController::class)->whereNumber('task');
+Route::post('tasks/{id}/restore', [TaskController::class, 'restore'])->name('tasks.restore');
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+// Categories
+Route::get('categories/statistics', [CategoryController::class, 'statistics'])->name('categories.statistics');
+Route::resource('categories', CategoryController::class)->whereNumber('category');
+Route::post('categories/{id}/restore', [CategoryController::class, 'restore'])->name('categories.restore');
+```
 
-## Code of Conduct
+## State Management
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Task Filters (`useTaskFiltersStore`)
+- Persists filters (status, priority, category, date range, search, sorting).
+- Saves to `localStorage` to survive page reloads.
 
-## Security Vulnerabilities
+### Category Statistics (`useCategoryStatsStore`)
+- Stores statistics & totals.
+- Can fetch JSON via `/categories/statistics`.
+- Integrated into `Statistics.vue` with Refresh button.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Caching & Observers
+- `CategoryService::getStatistics()` uses `CategoryStatsCache::remember()`.
+- Observers (`TaskObserver`, `CategoryObserver`) call `CategoryStatsCache::forget()` on create/update/delete/restore.
+- Default TTL: 5 minutes.
+- Works with `CACHE_DRIVER=file` (default for dev). Use `CACHE_DRIVER=redis` in production for better performance.
+
+## Not Implemented Yet
+
+### Laravel Echo + WebSockets
+Planned for realtime updates. Suggested approach: broadcast `TaskCreated|TaskUpdated|TaskDeleted|TaskRestored` events, then refresh stats via `useCategoryStatsStore().fetch()` on the frontend.
+
+### Tests (Pest)
+Recommended coverage:
+- **Feature:** Task/Category controllers (CRUD, filters, restore).  
+- **Unit:** `TaskQueryService` (filters/sorting), `CategoryService` (rules/statistics).  
+- **Request:** `TaskRequest` & `CategoryRequest`.  
+- **Observer:** cache invalidation.  
+
+## Commit Convention
+- `feat:` new feature  
+- `fix:` bug fix  
+- `refactor:` code change without feature/bug impact  
+- `chore:` tooling/deps/config  
+- `docs:` documentation  
+
+## Project Structure
+```
+docker/
+  nginx/default.conf
+  php/Dockerfile
+  postgres/init.sql
+src/
+  app/
+    Http/
+      Controllers/ (TaskController, CategoryController)
+      Requests/ (TaskRequest, CategoryRequest)
+      Resources/ (TaskResource, CategoryResource)
+      Middleware/HandleInertiaRequests.php
+    Models/ (Task, Category)
+    Services/ (TaskService, TaskQueryService, CategoryService)
+    Observers/ (TaskObserver, CategoryObserver)
+    Support/CategoryStatsCache.php
+    Providers/EventServiceProvider.php
+  database/migrations/
+  resources/js/
+    app.js
+    Layouts/AppLayout.vue
+    Components/ (Toasts.vue, StatCard.vue)
+    Pages/Tasks/ (Index.vue, TaskForm.vue, Show.vue)
+    Pages/Categories/ (Index.vue, CategoryForm.vue, Show.vue, Statistics.vue)
+    stores/ (useTaskFiltersStore.js, useCategoryStatsStore.js)
+  routes/web.php
+```
 
 ## License
+MIT — free to use for learning or as a project starter.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+---
+
+⚠️ Missing parts: Pest tests and Laravel Echo/WebSockets were not implemented yet due to time constraints. These would be the next steps to make the project production-ready.
