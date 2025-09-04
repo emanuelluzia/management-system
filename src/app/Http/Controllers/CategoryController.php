@@ -84,7 +84,7 @@ class CategoryController extends Controller
 
         return redirect()
             ->route('categories.index')
-            ->with('success', 'Categoria atualizada.');
+            ->with('success', 'Category updated.');
     }
 
     public function destroy(Category $category)
@@ -93,7 +93,7 @@ class CategoryController extends Controller
 
         return redirect()
             ->route('categories.index')
-            ->with('success', 'Categoria removida.');
+            ->with('success', 'Category removed.');
     }
 
     public function restore(int $id)
@@ -102,7 +102,7 @@ class CategoryController extends Controller
 
         return redirect()
             ->route('categories.index')
-            ->with('success', 'Categoria restaurada.');
+            ->with('success', 'Category restored.');
     }
 
     public function statistics(): \Inertia\Response|\Illuminate\Http\JsonResponse

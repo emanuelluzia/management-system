@@ -76,7 +76,7 @@ class TaskController extends Controller
 
         return redirect()
             ->route('tasks.index')
-            ->with('success', 'Tarefa criada com sucesso!');
+            ->with('success', 'Task created successfully!');
     }
 
     public function show(Task $task): Response
@@ -109,7 +109,7 @@ class TaskController extends Controller
 
         return redirect()
             ->route('tasks.index')
-            ->with('success', 'Tarefa atualizada.');
+            ->with('success', 'Task updated.');
     }
 
     public function destroy(Task $task)
@@ -118,7 +118,7 @@ class TaskController extends Controller
 
         return redirect()
             ->route('tasks.index')
-            ->with('success', 'Tarefa removida.');
+            ->with('success', 'Task removed.');
     }
 
     public function restore(int $id)
@@ -127,6 +127,6 @@ class TaskController extends Controller
 
         return redirect()
             ->route('tasks.index')
-            ->with('success', 'Tarefa restaurada.');
+            ->with('success', 'Task restored.');
     }
 }
