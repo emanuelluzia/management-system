@@ -1,59 +1,132 @@
 <?php
 
-// app/Http/Controllers/TaskController.php
 namespace App\Http\Controllers;
 
 use App\Models\Task;
+use App\Models\Category;
 use App\Services\TaskService;
+use App\Services\TaskQueryService;
+use App\Http\Requests\TaskRequest;
+use App\Http\Resources\TaskResource;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class TaskController extends Controller
 {
-    private TaskService $taskService;
+    public function __construct(
+        protected TaskService $taskService,
+        protected TaskQueryService $taskQueryService
+    ) {}
 
-    public function __construct(TaskService $taskService)
+    
+    protected function extractFilters(Request $request): array
     {
-        $this->taskService = $taskService;
+        return [
+            'status'      => $request->input('status'),
+            'priority'    => $request->input('priority'),
+            'category_id' => $request->input('category_id'),
+            'search'      => $request->input('search'),
+            'due_from'    => $request->input('due_from'),
+            'due_to'      => $request->input('due_to'),
+            'with'        => $request->input('with'), 
+
+        ];
     }
 
-    public function index()
+    protected function extractSorting(Request $request): array
     {
-        $tasks = $this->taskService->all();
-        // dd('tesre');
-        return Inertia::render('Tasks/Index', ['tasks' => $tasks]);
+        return [
+            'sort_by'  => $request->input('sort_by', 'created_at'),
+            'sort_dir' => $request->input('sort_dir', 'desc'),
+        ];
     }
 
-    public function store(Request $request)
+    public function index(Request $request): Response
     {
-        $data = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
+        $filters    = $this->extractFilters($request);
+        $sorting    = $this->extractSorting($request);
+
+        $tasks      = $this->taskQueryService->getAllTasks($filters, $sorting);
+        $statistics = $this->taskQueryService->getTaskStatistics();
+
+        return Inertia::render('Tasks/Index', [
+            'tasks'       => TaskResource::collection($tasks),
+            'filters'     => $filters,
+            'sorting'     => $sorting,
+            'statistics'  => $statistics,
         ]);
-        $this->taskService->store($data);
-        return redirect()->route('tasks.index');
     }
 
-    public function update(Request $request, Task $task)
+    public function create(): Response
     {
-        $data = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'completed' => 'boolean',
+        $categories = Category::query()
+            ->select('id', 'name', 'parent_id')
+            ->orderBy('name')
+            ->get();
+
+        return Inertia::render('Tasks/TaskForm', [
+            'categories' => $categories, 
         ]);
-        $this->taskService->update($task, $data);
-        return redirect()->route('tasks.index');
+    }
+
+    public function store(TaskRequest $request)
+    {
+        $this->taskService->createTask($request->validated());
+
+        return redirect()
+            ->route('tasks.index')
+            ->with('success', 'Tarefa criada com sucesso!');
+    }
+
+    public function show(Task $task): Response
+    {
+        $task->load(['category:id,name']);
+
+        return Inertia::render('Tasks/Show', [
+            'task' => new TaskResource($task),
+        ]);
+    }
+
+    public function edit(Task $task): Response
+    {
+        $task->load(['category:id,name']);
+
+        $categories = Category::query()
+            ->select('id', 'name', 'parent_id')
+            ->orderBy('name')
+            ->get();
+        
+        return Inertia::render('Tasks/TaskForm', [
+            'task'       => new TaskResource($task),
+            'categories' => $categories,
+        ]);
+    }
+
+    public function update(TaskRequest $request, Task $task)
+    {
+        $this->taskService->updateTask($task, $request->validated());
+
+        return redirect()
+            ->route('tasks.index')
+            ->with('success', 'Tarefa atualizada.');
     }
 
     public function destroy(Task $task)
     {
-        $this->taskService->delete($task);
-        return redirect()->route('tasks.index');
+        $this->taskService->deleteTask($task);
+
+        return redirect()
+            ->route('tasks.index')
+            ->with('success', 'Tarefa removida.');
     }
 
-    public function restore($id)
+    public function restore(int $id)
     {
-        $this->taskService->restore($id);
-        return redirect()->route('tasks.index');
+        $this->taskService->restoreTask($id);
+
+        return redirect()
+            ->route('tasks.index')
+            ->with('success', 'Tarefa restaurada.');
     }
 }
