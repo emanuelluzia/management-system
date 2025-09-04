@@ -3,36 +3,41 @@
 namespace App\Services;
 
 use App\Models\Task;
+use Illuminate\Support\Facades\DB;
 
 class TaskService
 {
-    public function all()
+
+    public function createTask(array $data): Task
     {
-        return Task::latest()->get();
+        return DB::transaction(function () use ($data) {
+            /** @var Task $task */
+            $task = Task::create($data);
+            return $task->fresh();
+        });
     }
 
-    public function store(array $data): Task
+    public function updateTask(Task $task, array $data): Task
     {
-        return Task::create($data);
+        return DB::transaction(function () use ($task, $data) {
+            $task->update($data);
+            return $task->fresh();
+        });
     }
 
-    public function update(Task $task, array $data): Task
+    public function deleteTask(Task $task): void
     {
-        $task->update($data);
-        return $task;
+        DB::transaction(function () use ($task) {
+            $task->delete();
+        });
     }
 
-    public function delete(Task $task): void
+    public function restoreTask(int $id): Task
     {
-        $task->delete();
-    }
+        /** @var Task $task */
+        $task = Task::onlyTrashed()->findOrFail($id);
+        $task->restore();
 
-    public function restore(int $id): ?Task
-    {
-        $task = Task::withTrashed()->find($id);
-        if ($task && $task->trashed()) {
-            $task->restore();
-        }
-        return $task;
+        return $task->fresh();
     }
 }
